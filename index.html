@@ -594,7 +594,7 @@ const ALL_LANGS = [
   {code:'th',name:'泰语',native:'ไทย'},{code:'tr',name:'土耳其语',native:'Türkçe'},
   {code:'tk',name:'土库曼语',native:'Türkmen'},{code:'uk',name:'乌克兰语',native:'Українська'},
   {code:'ur',name:'乌尔都语',native:'اردو'},{code:'ug',name:'维吾尔语',native:'ئۇيغۇرچە'},
-  {code:'uz',name:'乌兹别克语',native:'O'zbek'},{code:'vi',name:'越南语',native:'Tiếng Việt'},
+  {code:'uz',name:'乌兹别克语',native:"O'zbek"},{code:'vi',name:'越南语',native:'Tiếng Việt'},
   {code:'cy',name:'威尔士语',native:'Cymraeg'},{code:'xh',name:'科萨语',native:'IsiXhosa'},
   {code:'yi',name:'意第绪语',native:'ייִדיש'},{code:'yo',name:'约鲁巴语',native:'Yoruba'},
   {code:'zu',name:'祖鲁语',native:'IsiZulu'},
@@ -775,7 +775,7 @@ function getLangName(code) { return LANG_MAP[code] || code; }
           const item = document.createElement('div');
           const currentCode = pickerTarget === 'src' ? srcLang.value : tgtLang.value;
           item.className = 'lang-list-item' + (l.code === currentCode ? ' active' : '');
-          item.innerHTML = \`<span class="lang-list-item-name">\${l.name}<span class="lang-list-item-hot-badge">HOT</span></span><span class="lang-list-item-native">\${l.native}</span>\`;
+          item.innerHTML = `<span class="lang-list-item-name">${l.name}<span class="lang-list-item-hot-badge">HOT</span></span><span class="lang-list-item-native">${l.native}</span>`;
           item.onclick = () => selectLang(l.code);
           sec.appendChild(item);
         });
@@ -792,7 +792,7 @@ function getLangName(code) { return LANG_MAP[code] || code; }
         const item = document.createElement('div');
         const currentCode = pickerTarget === 'src' ? srcLang.value : tgtLang.value;
         item.className = 'lang-list-item' + (l.code === currentCode ? ' active' : '');
-        item.innerHTML = \`<span class="lang-list-item-name">\${l.name}</span><span class="lang-list-item-native">\${l.native}</span>\`;
+        item.innerHTML = `<span class="lang-list-item-name">${l.name}</span><span class="lang-list-item-native">${l.native}</span>`;
         item.onclick = () => selectLang(l.code);
         sec.appendChild(item);
       });
@@ -867,6 +867,7 @@ function getLangName(code) { return LANG_MAP[code] || code; }
       charCount.textContent = currentOutput.length;
     }
 
+    updateLangDisplay();
     saveSettings();
     triggerAutoTranslate();
   });
