@@ -192,6 +192,24 @@ main{
 }
 .toast.show{opacity:1}
 
+/* Camera row */
+.camera-row{
+  flex-shrink:0;
+}
+.camera-btn{
+  width:100%;padding:14px 16px;border:2px dashed var(--border);
+  border-radius:var(--radius);background:var(--card);
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  cursor:pointer;transition:all 0.2s;font-family:inherit;
+  box-shadow:var(--shadow);
+}
+.camera-btn:active{
+  background:var(--input-bg);border-color:var(--primary);
+  transform:scale(0.99);
+}
+.camera-icon{font-size:22px}
+.camera-label{font-size:15px;font-weight:500;color:var(--text2)}
+
 /* Image preview */
 .image-btn{
   background:none;border:none;color:var(--primary);font-size:20px;
@@ -270,6 +288,15 @@ main{
     </select>
   </div>
 
+  <!-- Camera / Image Upload Row -->
+  <div class="camera-row">
+    <input type="file" id="imageInput" accept="image/*" capture="environment" style="display:none">
+    <button class="camera-btn" id="imageBtn">
+      <span class="camera-icon">📷</span>
+      <span class="camera-label">拍照或选图识别文字</span>
+    </button>
+  </div>
+
   <!-- Source Input -->
   <div class="card">
     <div class="card-header">
@@ -285,13 +312,9 @@ main{
       </div>
     </div>
     <div class="card-footer">
-      <div style="display:flex;align-items:center;gap:8px">
-        <button class="image-btn" id="imageBtn" title="上传图片/拍照">📷</button>
-        <input type="file" id="imageInput" accept="image/*" capture="environment" style="display:none">
-        <div class="auto-toggle">
-          <div class="switch active" id="autoSwitch"></div>
-          <span>自动翻译</span>
-        </div>
+      <div class="auto-toggle">
+        <div class="switch active" id="autoSwitch"></div>
+        <span>自动翻译</span>
       </div>
       <div>
         <span id="charCount">0</span>
