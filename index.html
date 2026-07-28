@@ -464,7 +464,7 @@ main{
     <div class="modal-title">设置</div>
     <div class="modal-body">
       <label>API Key</label>
-      <input type="password" id="apiKeyInput" placeholder="sk-xxxxxxxxxxxxxxxx" value="sk-e6c4852b733749b298a3dfde0326b7ab">
+      <input type="password" id="apiKeyInput" placeholder="sk-xxxxxxxxxxxxxxxx" value="">
 
       <label>API 地址</label>
       <input type="text" id="apiUrlInput" value="https://api.deepseek.com/v1/chat/completions" placeholder="https://api.deepseek.com/v1/chat/completions">
@@ -1153,7 +1153,7 @@ function getLangName(code) { return LANG_MAP[code] || code; }
   });
 
   resetKeyBtn.addEventListener('click', function(){
-    apiKeyInput.value = 'sk-e6c4852b733749b298a3dfde0326b7ab';
+    apiKeyInput.value = '';
     apiUrlInput.value = 'https://api.deepseek.com/v1/chat/completions';
     modelInput.value = 'deepseek-v4-flash';
     apiModeInput.value = 'openai';
