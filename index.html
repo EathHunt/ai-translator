@@ -529,7 +529,6 @@ main{
   const saveSettingsBtn= document.getElementById('saveSettingsBtn');
 
   const charCount      = document.getElementById('charCount');
-  const autoSwitch     = document.getElementById('autoSwitch');
   const autoSwitch2    = document.getElementById('autoSwitch2');
   const autoToggleCard = document.getElementById('autoToggleCard');
   const toast          = document.getElementById('toast');
@@ -572,7 +571,7 @@ main{
       if(s.srcLang && !s.srcLang.startsWith('sk-')) srcLang.value = s.srcLang;
       if(s.tgtLang && !s.tgtLang.startsWith('sk-')) tgtLang.value = s.tgtLang;
       if(s.autoTranslate !== undefined) autoTranslate = s.autoTranslate;
-      autoSwitch.classList.toggle('active',autoTranslate);
+      autoSwitch2.classList.toggle('active',autoTranslate);
     }catch(e){}
   }
   function saveSettings(){
@@ -990,12 +989,12 @@ function getLangName(code) { return LANG_MAP[code] || code; }
   // === Auto translate toggle ===
   function toggleAuto() {
     autoTranslate = !autoTranslate;
-    autoSwitch.classList.toggle('active',autoTranslate);
+    autoSwitch2.classList.toggle('active',autoTranslate);
     autoSwitch2.classList.toggle('active',autoTranslate);
     saveSettings();
     if(autoTranslate) triggerAutoTranslate();
   }
-  autoSwitch.addEventListener('click', toggleAuto);
+  
   autoSwitch2.addEventListener('click', toggleAuto);
   autoToggleCard.addEventListener('click', toggleAuto);
 
