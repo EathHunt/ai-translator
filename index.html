@@ -195,6 +195,63 @@ main{
 }
 .toast.show{opacity:1}
 
+/* Language picker buttons */
+.lang-bar{
+  flex-direction:row;align-items:center;gap:8px;
+  background:var(--card);border-radius:var(--radius);padding:8px;
+  box-shadow:var(--shadow);display:flex;
+}
+.lang-btn{
+  flex:1;display:flex;align-items:center;gap:6px;
+  background:var(--input-bg);border:none;border-radius:var(--radius-sm);
+  padding:10px 14px;cursor:pointer;font-family:inherit;
+  transition:background 0.15s;
+}
+.lang-btn:active{background:var(--border)}
+.lang-btn-code{font-size:15px;font-weight:600;color:var(--text);flex:1;text-align:center}
+.lang-btn-arrow{font-size:8px;color:var(--text2)}
+
+/* Language picker sheet */
+.lang-sheet{height:70vh;display:flex;flex-direction:column}
+.lang-search-wrap{
+  position:relative;margin-bottom:12px;
+}
+.lang-search-icon{
+  position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:16px;
+}
+.lang-search-input{
+  width:100%;padding:12px 14px 12px 40px;
+  border:1px solid var(--border);border-radius:var(--radius-sm);
+  font-size:16px;color:var(--text);background:var(--input-bg);
+  font-family:inherit;outline:none;
+}
+.lang-search-input:focus{border-color:var(--primary)}
+.lang-list{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.lang-list-section{padding:4px 0}
+.lang-list-section-title{
+  font-size:13px;font-weight:700;color:var(--text2);
+  text-transform:uppercase;letter-spacing:0.5px;
+  padding:12px 8px 6px;border-bottom:1px solid var(--border);
+  margin-bottom:4px;
+}
+.lang-list-item{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 12px;border-radius:8px;cursor:pointer;
+  transition:background 0.1s;
+}
+.lang-list-item:active{background:var(--input-bg)}
+.lang-list-item-name{font-size:16px;color:var(--text)}
+.lang-list-item-native{font-size:14px;color:var(--text2)}
+.lang-list-item.active{background:rgba(0,122,255,0.1)}
+.lang-list-item.active .lang-list-item-name{color:var(--primary);font-weight:600}
+.lang-list-item-hot-badge{
+  font-size:10px;padding:1px 6px;border-radius:3px;
+  background:rgba(255,193,7,0.2);color:#B8860B;font-weight:600;margin-left:6px;
+}
+.lang-list-search-empty{
+  text-align:center;padding:40px 20px;color:var(--text2);font-size:15px;
+}
+
 /* Camera row */
 .camera-row{
   flex-shrink:0;
@@ -275,20 +332,15 @@ main{
 <main id="main">
   <!-- Language Bar -->
   <div class="lang-bar">
-    <select id="srcLang">
-      <option value="auto">自动检测</option>
-      <option value="zh">中文</option>
-      <option value="en">英语</option>
-      <option value="ja">日语</option>
-      <option value="ko">韩语</option>
-    </select>
+    <button class="lang-btn" id="srcLangBtn">
+      <span class="lang-btn-code" id="srcLangCode">Auto</span>
+      <span class="lang-btn-arrow">▼</span>
+    </button>
     <button class="swap-btn" id="swapBtn">⇄</button>
-    <select id="tgtLang">
-      <option value="zh">中文</option>
-      <option value="en" selected>英语</option>
-      <option value="ja">日语</option>
-      <option value="ko">韩语</option>
-    </select>
+    <button class="lang-btn" id="tgtLangBtn">
+      <span class="lang-btn-code" id="tgtLangCode">EN</span>
+      <span class="lang-btn-arrow">▼</span>
+    </button>
   </div>
 
   <!-- Camera / Image Upload Row -->
@@ -356,6 +408,18 @@ main{
   </div>
 </main>
 
+<!-- Language Picker Modal -->
+<div class="modal-overlay" id="langModal">
+  <div class="modal-sheet lang-sheet">
+    <div class="modal-handle"></div>
+    <div class="lang-search-wrap">
+      <span class="lang-search-icon">🔍</span>
+      <input class="lang-search-input" id="langSearch" type="text" placeholder="搜索语言…" autocomplete="off">
+    </div>
+    <div class="lang-list" id="langList"></div>
+  </div>
+</div>
+
 <!-- Settings Modal -->
 <div class="modal-overlay" id="settingsModal">
   <div class="modal-sheet">
@@ -393,8 +457,7 @@ main{
   'use strict';
 
   // === Config ===
-  const LANG_MAP = {zh:'中文',en:'英语',ja:'日语',ko:'韩语',auto:'自动检测'};
-  const LANG_NAME_TO_CODE = {中文:'zh',英语:'en',日语:'ja',韩语:'ko'};
+
 
   // === DOM refs ===
   const srcLang        = document.getElementById('srcLang');
@@ -427,8 +490,15 @@ main{
   const fileIcon       = document.getElementById('fileIcon');
   const fileName       = document.getElementById('fileName');
   const fileSize       = document.getElementById('fileSize');
+  const langModal      = document.getElementById('langModal');
+  const langSearch     = document.getElementById('langSearch');
+  const langList       = document.getElementById('langList');
+  const srcLangBtn     = document.getElementById('srcLangBtn');
+  const tgtLangBtn     = document.getElementById('tgtLangBtn');
+  const srcLangCode    = document.getElementById('srcLangCode');
+  const tgtLangCode    = document.getElementById('tgtLangCode');
+  let pickerTarget = 'src'; // 'src' or 'tgt'
   let currentImageBase64 = '';
-  let currentFileName = '';
   let currentFileType = '';
 
   // === State ===
@@ -446,8 +516,8 @@ main{
       if(s.apiUrl) apiUrlInput.value = s.apiUrl;
       if(s.model) modelInput.value = s.model;
       if(s.apiMode) apiModeInput.value = s.apiMode;
-      if(s.srcLang && ['auto','zh','en','ja','ko'].includes(s.srcLang)) srcLang.value = s.srcLang;
-      if(s.tgtLang && ['zh','en','ja','ko'].includes(s.tgtLang)) tgtLang.value = s.tgtLang;
+      if(s.srcLang && !s.srcLang.startsWith('sk-')) srcLang.value = s.srcLang;
+      if(s.tgtLang && !s.tgtLang.startsWith('sk-')) tgtLang.value = s.tgtLang;
       if(s.autoTranslate !== undefined) autoTranslate = s.autoTranslate;
       autoSwitch.classList.toggle('active',autoTranslate);
     }catch(e){}
@@ -465,12 +535,73 @@ main{
   }
   loadSettings();
 
-  // === Language helpers ===
-  function getLangName(code){ return LANG_MAP[code]||code; }
-  function langCodeToChinese(code){
-    const m={zh:'中文',en:'英语',ja:'日语',ko:'韩语'};
-    return m[code]||code;
-  }
+  // === Language Database ===
+const POPULAR_LANGS = [
+  {code:'zh',name:'中文',native:'中文'},
+  {code:'en',name:'英语',native:'English'},
+  {code:'ja',name:'日语',native:'日本語'},
+  {code:'ko',name:'韩语',native:'한국어'},
+];
+
+const ALL_LANGS = [
+  {code:'af',name:'南非荷兰语',native:'Afrikaans'},{code:'sq',name:'阿尔巴尼亚语',native:'Shqip'},
+  {code:'am',name:'阿姆哈拉语',native:'አማርኛ'},{code:'ar',name:'阿拉伯语',native:'العربية'},
+  {code:'hy',name:'亚美尼亚语',native:'Հայերեն'},{code:'az',name:'阿塞拜疆语',native:'Azərbaycan'},
+  {code:'eu',name:'巴斯克语',native:'Euskara'},{code:'be',name:'白俄罗斯语',native:'Беларуская'},
+  {code:'bn',name:'孟加拉语',native:'বাংলা'},{code:'bs',name:'波斯尼亚语',native:'Bosanski'},
+  {code:'bg',name:'保加利亚语',native:'Български'},{code:'my',name:'缅甸语',native:'မြန်မာစာ'},
+  {code:'ca',name:'加泰罗尼亚语',native:'Català'},{code:'ceb',name:'宿务语',native:'Cebuano'},
+  {code:'ny',name:'齐切瓦语',native:'Chichewa'},{code:'zh-cn',name:'简体中文',native:'简体中文'},
+  {code:'zh-tw',name:'繁体中文',native:'繁體中文'},{code:'co',name:'科西嘉语',native:'Corsu'},
+  {code:'hr',name:'克罗地亚语',native:'Hrvatski'},{code:'cs',name:'捷克语',native:'Čeština'},
+  {code:'da',name:'丹麦语',native:'Dansk'},{code:'nl',name:'荷兰语',native:'Nederlands'},
+  {code:'eo',name:'世界语',native:'Esperanto'},{code:'et',name:'爱沙尼亚语',native:'Eesti'},
+  {code:'tl',name:'菲律宾语',native:'Filipino'},{code:'fi',name:'芬兰语',native:'Suomi'},
+  {code:'fr',name:'法语',native:'Français'},{code:'gl',name:'加利西亚语',native:'Galego'},
+  {code:'ka',name:'格鲁吉亚语',native:'ქართული'},{code:'de',name:'德语',native:'Deutsch'},
+  {code:'el',name:'希腊语',native:'Ελληνικά'},{code:'gu',name:'古吉拉特语',native:'ગુજરાતી'},
+  {code:'ht',name:'海地克里奥尔语',native:'Kreyòl Ayisyen'},{code:'ha',name:'豪萨语',native:'Hausa'},
+  {code:'haw',name:'夏威夷语',native:'ʻŌlelo Hawaiʻi'},{code:'he',name:'希伯来语',native:'עברית'},
+  {code:'hi',name:'印地语',native:'हिन्दी'},{code:'hmn',name:'苗族语',native:'Hmoob'},
+  {code:'hu',name:'匈牙利语',native:'Magyar'},{code:'is',name:'冰岛语',native:'Íslenska'},
+  {code:'ig',name:'伊博语',native:'Igbo'},{code:'id',name:'印尼语',native:'Bahasa Indonesia'},
+  {code:'ga',name:'爱尔兰语',native:'Gaeilge'},{code:'it',name:'意大利语',native:'Italiano'},
+  {code:'kn',name:'卡纳达语',native:'ಕನ್ನಡ'},{code:'kk',name:'哈萨克语',native:'Қазақ'},
+  {code:'km',name:'高棉语',native:'ភាសាខ្មែរ'},{code:'rw',name:'卢旺达语',native:'Ikinyarwanda'},
+  {code:'ky',name:'吉尔吉斯语',native:'Кыргызча'},{code:'lo',name:'老挝语',native:'ລາວ'},
+  {code:'la',name:'拉丁语',native:'Latina'},{code:'lv',name:'拉脱维亚语',native:'Latviešu'},
+  {code:'lt',name:'立陶宛语',native:'Lietuvių'},{code:'lb',name:'卢森堡语',native:'Lëtzebuergesch'},
+  {code:'mk',name:'马其顿语',native:'Македонски'},{code:'mg',name:'马达加斯加语',native:'Malagasy'},
+  {code:'ms',name:'马来语',native:'Bahasa Melayu'},{code:'ml',name:'马拉雅拉姆语',native:'മലയാളം'},
+  {code:'mt',name:'马耳他语',native:'Malti'},{code:'mi',name:'毛利语',native:'Māori'},
+  {code:'mr',name:'马拉地语',native:'मराठी'},{code:'mn',name:'蒙古语',native:'Монгол'},
+  {code:'ne',name:'尼泊尔语',native:'नेपाली'},{code:'no',name:'挪威语',native:'Norsk'},
+  {code:'or',name:'奥里亚语',native:'ଓଡ଼ିଆ'},{code:'ps',name:'普什图语',native:'پښتو'},
+  {code:'fa',name:'波斯语',native:'فارسی'},{code:'pl',name:'波兰语',native:'Polski'},
+  {code:'pt',name:'葡萄牙语',native:'Português'},{code:'pa',name:'旁遮普语',native:'ਪੰਜਾਬੀ'},
+  {code:'ro',name:'罗马尼亚语',native:'Română'},{code:'ru',name:'俄语',native:'Русский'},
+  {code:'sm',name:'萨摩亚语',native:'Gagana Samoa'},{code:'gd',name:'苏格兰盖尔语',native:'Gàidhlig'},
+  {code:'sr',name:'塞尔维亚语',native:'Српски'},{code:'st',name:'塞索托语',native:'Sesotho'},
+  {code:'sn',name:'绍纳语',native:'Shona'},{code:'sd',name:'信德语',native:'سنڌي'},
+  {code:'si',name:'僧伽罗语',native:'සිංහල'},{code:'sk',name:'斯洛伐克语',native:'Slovenčina'},
+  {code:'sl',name:'斯洛文尼亚语',native:'Slovenščina'},{code:'so',name:'索马里语',native:'Soomaali'},
+  {code:'es',name:'西班牙语',native:'Español'},{code:'su',name:'巽他语',native:'Basa Sunda'},
+  {code:'sw',name:'斯瓦希里语',native:'Kiswahili'},{code:'sv',name:'瑞典语',native:'Svenska'},
+  {code:'tg',name:'塔吉克语',native:'Тоҷикӣ'},{code:'ta',name:'泰米尔语',native:'தமிழ்'},
+  {code:'tt',name:'鞑靼语',native:'Татар'},{code:'te',name:'泰卢固语',native:'తెలుగు'},
+  {code:'th',name:'泰语',native:'ไทย'},{code:'tr',name:'土耳其语',native:'Türkçe'},
+  {code:'tk',name:'土库曼语',native:'Türkmen'},{code:'uk',name:'乌克兰语',native:'Українська'},
+  {code:'ur',name:'乌尔都语',native:'اردو'},{code:'ug',name:'维吾尔语',native:'ئۇيغۇرچە'},
+  {code:'uz',name:'乌兹别克语',native:'O'zbek'},{code:'vi',name:'越南语',native:'Tiếng Việt'},
+  {code:'cy',name:'威尔士语',native:'Cymraeg'},{code:'xh',name:'科萨语',native:'IsiXhosa'},
+  {code:'yi',name:'意第绪语',native:'ייִדיש'},{code:'yo',name:'约鲁巴语',native:'Yoruba'},
+  {code:'zu',name:'祖鲁语',native:'IsiZulu'},
+];
+
+const LANG_MAP = {};
+[...POPULAR_LANGS, ...ALL_LANGS].forEach(l => { LANG_MAP[l.code] = l.name; });
+LANG_MAP['auto'] = '自动检测';
+function getLangName(code) { return LANG_MAP[code] || code; }
 
   // === Toast ===
   let toastTimer;
@@ -486,7 +617,7 @@ main{
     if(srcLang.value === 'auto' && langCode && langCode !== 'auto'){
       detectedLang = langCode;
       detectBadge.style.display = 'inline';
-      detectBadge.textContent = '→ '+langCodeToChinese(langCode);
+      detectBadge.textContent = '→ '+getLangName(langCode);
     }
   }
 
@@ -506,11 +637,11 @@ main{
     // Build system prompt
     let srcLabel, tgtLabel;
     if(src === 'auto'){
-      srcLabel = detectedLang ? langCodeToChinese(detectedLang) : '源语言';
+      srcLabel = detectedLang ? getLangName(detectedLang) : '源语言';
     } else {
-      srcLabel = langCodeToChinese(src);
+      srcLabel = getLangName(src);
     }
-    tgtLabel = langCodeToChinese(tgt);
+    tgtLabel = getLangName(tgt);
 
     const systemPrompt = `你是一位专业的翻译专家。你的任务是将用户输入的文本从${srcLabel}精确翻译成${tgtLabel}。
 
@@ -604,20 +735,107 @@ main{
     triggerAutoTranslate();
   });
 
-  // === Event: source language change ===
-  srcLang.addEventListener('change', function(){
-    // Reset detection badge if switching off auto
-    if(this.value !== 'auto'){
-      detectBadge.style.display = 'none';
-      detectedLang = '';
+  // === Language picker logic ===
+  function getLangCode(name) {
+    for(const l of [...POPULAR_LANGS, ...ALL_LANGS]) if(l.name === name) return l.code;
+    return 'en';
+  }
+
+  function renderLangList(query) {
+    const q = (query||'').toLowerCase();
+    langList.innerHTML = '';
+
+    if(pickerTarget === 'src' && !q){
+      // Auto-detect option for source
+      const autoDiv = document.createElement('div');
+      autoDiv.className = 'lang-list-item' + (srcLang.value === 'auto' ? ' active' : '');
+      autoDiv.innerHTML = '<span class="lang-list-item-name">自动检测</span><span class="lang-list-item-native">Auto Detect</span>';
+      autoDiv.onclick = () => selectLang('auto');
+      langList.appendChild(autoDiv);
+    }
+
+    // Filter func
+    function match(l) {
+      if(!q) return true;
+      return l.name.toLowerCase().includes(q) || l.native.toLowerCase().includes(q) || l.code.includes(q);
+    }
+
+    const filteredPopular = POPULAR_LANGS.filter(match);
+    const filteredAll = ALL_LANGS.filter(match);
+
+    if(!q){
+      // Show popular section
+      if(filteredPopular.length){
+        const sec = document.createElement('div');
+        sec.className = 'lang-list-section';
+        sec.innerHTML = '<div class="lang-list-section-title">🔥 热门</div>';
+        filteredPopular.forEach(l => {
+          const item = document.createElement('div');
+          const currentCode = pickerTarget === 'src' ? srcLang.value : tgtLang.value;
+          item.className = 'lang-list-item' + (l.code === currentCode ? ' active' : '');
+          item.innerHTML = \`<span class="lang-list-item-name">\${l.name}<span class="lang-list-item-hot-badge">HOT</span></span><span class="lang-list-item-native">\${l.native}</span>\`;
+          item.onclick = () => selectLang(l.code);
+          sec.appendChild(item);
+        });
+        langList.appendChild(sec);
+      }
+    }
+
+    // All languages
+    if(filteredAll.length){
+      const sec = document.createElement('div');
+      sec.className = 'lang-list-section';
+      sec.innerHTML = '<div class="lang-list-section-title">' + (q ? '🔍 搜索结果' : '🌍 所有语言') + '</div>';
+      filteredAll.forEach(l => {
+        const item = document.createElement('div');
+        const currentCode = pickerTarget === 'src' ? srcLang.value : tgtLang.value;
+        item.className = 'lang-list-item' + (l.code === currentCode ? ' active' : '');
+        item.innerHTML = \`<span class="lang-list-item-name">\${l.name}</span><span class="lang-list-item-native">\${l.native}</span>\`;
+        item.onclick = () => selectLang(l.code);
+        sec.appendChild(item);
+      });
+      langList.appendChild(sec);
+    }
+
+    if(!filteredPopular.length && !filteredAll.length){
+      langList.innerHTML = '<div class="lang-list-search-empty">未找到匹配的语言</div>';
+    }
+  }
+
+  function selectLang(code) {
+    if(pickerTarget === 'src'){
+      srcLang.value = code;
+      srcLangCode.textContent = code === 'auto' ? 'Auto' : (POPULAR_LANGS.find(l=>l.code===code)||ALL_LANGS.find(l=>l.code===code)||{}).native || code.toUpperCase();
+      if(code !== 'auto'){ detectBadge.style.display = 'none'; detectedLang = ''; }
+    } else {
+      tgtLang.value = code;
+      tgtLangCode.textContent = (POPULAR_LANGS.find(l=>l.code===code)||ALL_LANGS.find(l=>l.code===code)||{}).native || code.toUpperCase();
     }
     saveSettings();
+    langModal.classList.remove('open');
     triggerAutoTranslate();
+  }
+
+  srcLangBtn.addEventListener('click', () => {
+    pickerTarget = 'src';
+    langSearch.value = '';
+    renderLangList('');
+    langModal.classList.add('open');
+    setTimeout(() => langSearch.focus(), 350);
   });
 
-  tgtLang.addEventListener('change', function(){
-    saveSettings();
-    triggerAutoTranslate();
+  tgtLangBtn.addEventListener('click', () => {
+    pickerTarget = 'tgt';
+    langSearch.value = '';
+    renderLangList('');
+    langModal.classList.add('open');
+    setTimeout(() => langSearch.focus(), 350);
+  });
+
+  langSearch.addEventListener('input', (e) => renderLangList(e.target.value));
+
+  langModal.addEventListener('click', (e) => {
+    if(e.target === langModal) langModal.classList.remove('open');
   });
 
   // === Swap languages ===
@@ -898,6 +1116,15 @@ main{
 
   // === Handle incoming text from share extension or clipboard ===
   // (PWA opened with shared text)
+
+  // === Initialize language button display ===
+  function updateLangDisplay() {
+    const sc = srcLang.value;
+    const tc = tgtLang.value;
+    srcLangCode.textContent = sc === 'auto' ? 'Auto' : (POPULAR_LANGS.find(l=>l.code===sc)||ALL_LANGS.find(l=>l.code===sc)||{}).native || sc.toUpperCase();
+    tgtLangCode.textContent = (POPULAR_LANGS.find(l=>l.code===tc)||ALL_LANGS.find(l=>l.code===tc)||{}).native || tc.toUpperCase();
+  }
+  updateLangDisplay();
 
   // === Initial auto-translate if there's text ===
   if(srcText.value.trim()){
