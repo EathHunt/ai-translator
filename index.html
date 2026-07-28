@@ -177,6 +177,7 @@ main{
   background:var(--input-bg);font-family:inherit;margin-bottom:16px;
 }
 .modal-body input:focus{border-color:var(--primary);outline:none}
+.modal-body input:read-only,.modal-body select:disabled{opacity:0.6;cursor:not-allowed}
 .modal-actions{display:flex;gap:10px;margin-top:8px}
 .modal-actions button{
   flex:1;padding:14px;border:none;border-radius:var(--radius-sm);
@@ -467,19 +468,18 @@ main{
       <input type="password" id="apiKeyInput" placeholder="sk-xxxxxxxxxxxxxxxx" value="">
 
       <label>API 地址</label>
-      <input type="text" id="apiUrlInput" value="https://api.deepseek.com/v1/chat/completions" placeholder="https://api.deepseek.com/v1/chat/completions">
+      <input type="text" id="apiUrlInput" readonly value="https://api.deepseek.com/v1/chat/completions" placeholder="https://api.deepseek.com/v1/chat/completions">
 
       <label>模型</label>
-      <input type="text" id="modelInput" value="deepseek-v4-flash" placeholder="deepseek-v4-flash">
+      <input type="text" id="modelInput" readonly value="deepseek-v4-flash" placeholder="deepseek-v4-flash">
 
       <label>接口模式</label>
-      <select id="apiModeInput">
+      <select id="apiModeInput" disabled>
         <option value="openai">OpenAI 兼容模式</option>
         <option value="custom">自定义流式模式</option>
       </select>
 
       <div class="modal-actions">
-        <button class="btn-secondary" id="resetKeyBtn">恢复默认</button>
         <button class="btn-primary" id="saveSettingsBtn">保存</button>
       </div>
     </div>
@@ -1138,9 +1138,6 @@ function getLangName(code) { return LANG_MAP[code] || code; }
   });
 
   // === Settings modal ===
-  settingsBtn.addEventListener('click', function(){
-    settingsModal.classList.add('open');
-  });
 
   settingsModal.addEventListener('click', function(e){
     if(e.target === this) this.classList.remove('open');
