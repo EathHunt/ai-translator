@@ -10,6 +10,9 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <script>if("serviceWorker" in navigator){window.addEventListener("load",()=>{navigator.serviceWorker.register("sw.js").catch(()=>{})})}</script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"</script>
+<script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
 <title>AI 翻译</title>
 <style>
 /* === Reset & Base === */
@@ -290,10 +293,10 @@ main{
 
   <!-- Camera / Image Upload Row -->
   <div class="camera-row">
-    <input type="file" id="imageInput" accept="image/*" capture="environment" style="display:none">
+    <input type="file" id="imageInput" accept="image/*,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,.docx,.pdf,.txt" style="display:none">
     <button class="camera-btn" id="imageBtn">
-      <span class="camera-icon">📷</span>
-      <span class="camera-label">拍照或选图识别文字</span>
+      <span class="camera-icon">📄</span>
+      <span class="camera-label">上传图片或文档（PDF/DOCX/TXT）</span>
     </button>
   </div>
 
@@ -307,7 +310,12 @@ main{
     </div>
     <div class="image-preview" id="imagePreview" style="display:none;padding:0 16px 8px">
       <div class="image-preview-inner">
-        <img id="imagePreviewImg" src="" alt="预览">
+        <img id="imagePreviewImg" src="" alt="预览" style="display:none">
+        <div id="fileInfo" style="display:none;padding:8px 0;font-size:14px;color:var(--text);word-break:break-all">
+          <span id="fileIcon">📄</span>
+          <span id="fileName"></span>
+          <span id="fileSize" style="color:var(--text2);font-size:12px;margin-left:6px"></span>
+        </div>
         <button class="image-remove-btn" id="removeImageBtn">✕</button>
       </div>
     </div>
@@ -415,7 +423,13 @@ main{
   const imagePreview   = document.getElementById('imagePreview');
   const imagePreviewImg= document.getElementById('imagePreviewImg');
   const removeImageBtn = document.getElementById('removeImageBtn');
+  const fileInfo       = document.getElementById('fileInfo');
+  const fileIcon       = document.getElementById('fileIcon');
+  const fileName       = document.getElementById('fileName');
+  const fileSize       = document.getElementById('fileSize');
   let currentImageBase64 = '';
+  let currentFileName = '';
+  let currentFileType = '';
 
   // === State ===
   let autoTranslate = true;
@@ -683,8 +697,12 @@ main{
     srcText.value = '';
     charCount.textContent = '0';
     currentImageBase64 = '';
+    currentFileName = '';
+    currentFileType = '';
     imagePreview.style.display = 'none';
     imagePreviewImg.src = '';
+    imagePreviewImg.style.display = 'block';
+    fileInfo.style.display = 'none';
     imageInput.value = '';
     outputText.textContent = '翻译结果将显示在这里';
     outputText.classList.add('placeholder');
@@ -703,8 +721,8 @@ main{
     if(autoTranslate) triggerAutoTranslate();
   });
 
-  // === Image upload + OCR ===
-  let isOCRProcessing = false;
+  // === File upload + OCR / document parsing ===
+  let isProcessingFile = false;
 
   imageBtn.addEventListener('click', function(){
     imageInput.click();
@@ -715,67 +733,129 @@ main{
     if(!file) return;
 
     if(file.size > 20 * 1024 * 1024){
-      showToast('图片太大，请选择 20MB 以内的图片');
+      showToast('文件太大，请选择 20MB 以内的文件');
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = async function(ev){
-      currentImageBase64 = ev.target.result;
-      imagePreviewImg.src = currentImageBase64;
-      imagePreview.style.display = 'block';
-      showToast('正在 OCR 识别…');
+    currentFileName = file.name;
+    currentFileType = file.type;
+    isProcessingFile = true;
+    translateBtn.classList.add('loading');
 
-      // Run Tesseract.js OCR
-      isOCRProcessing = true;
-      translateBtn.classList.add('loading');
-      translateBtn.querySelector('.label').textContent = 'OCR识别中…';
+    // Show file info in preview
+    const isImage = file.type.startsWith('image/');
+    if(isImage){
+      fileInfo.style.display = 'none';
+      imagePreviewImg.style.display = 'block';
+    } else {
+      imagePreviewImg.style.display = 'none';
+      fileInfo.style.display = 'block';
+      const iconMap = {
+        'application/pdf': '📕',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '📘',
+        'text/plain': '📄'
+      };
+      fileIcon.textContent = iconMap[file.type] || '📄';
+      fileName.textContent = file.name;
+      const sizes = ['B','KB','MB'];
+      const i = Math.floor(Math.log(file.size)/Math.log(1024));
+      fileSize.textContent = (file.size/Math.pow(1024,i)).toFixed(1)+sizes[i];
+    }
+    imagePreview.style.display = 'block';
 
-      try {
+    try {
+      let extractedText = '';
+
+      if(isImage){
+        // Image → OCR with Tesseract.js
+        translateBtn.querySelector('.label').textContent = 'OCR识别中…';
+        showToast('正在 OCR 识别…');
+
+        const reader = new FileReader();
+        const base64 = await new Promise((resolve, reject) => {
+          reader.onload = ev => resolve(ev.target.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+
+        currentImageBase64 = base64;
+        imagePreviewImg.src = base64;
+        imagePreviewImg.style.display = 'block';
+        fileInfo.style.display = 'none';
+
         const langMap = {
           'auto': 'chi_sim+eng+jpn+kor',
-          'zh': 'chi_sim',
-          'en': 'eng',
-          'ja': 'jpn',
-          'ko': 'kor'
+          'zh': 'chi_sim', 'en': 'eng', 'ja': 'jpn', 'ko': 'kor'
         };
-        const src = srcLang.value;
-        const lang = langMap[src] || 'chi_sim+eng+jpn+kor';
+        const lang = langMap[srcLang.value] || 'chi_sim+eng+jpn+kor';
 
-        const result = await Tesseract.recognize(
-          currentImageBase64,
-          lang,
-          { logger: m => { if(m.status === 'recognizing text'){ /* progress */ } } }
-        );
+        const result = await Tesseract.recognize(base64, lang);
+        extractedText = result.data.text.trim();
 
-        const extractedText = result.data.text.trim();
-        if(extractedText){
-          srcText.value = extractedText;
-          charCount.textContent = extractedText.length;
-          showToast('OCR 完成，识别到 ' + extractedText.length + ' 个字');
+      } else if(file.type === 'application/pdf'){
+        // PDF → extract text via PDF.js
+        translateBtn.querySelector('.label').textContent = 'PDF解析中…';
+        showToast('正在解析 PDF…');
 
-          // Auto-trigger translation
-          if(autoTranslate){
-            setTimeout(triggerAutoTranslate, 500);
-          }
-        } else {
-          showToast('未识别到文字，请重试');
+        const buf = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({data: buf}).promise;
+        const pages = [];
+        for(let i=1; i<=pdf.numPages; i++){
+          const page = await pdf.getPage(i);
+          const tc = await page.getTextContent();
+          pages.push(tc.items.map(t => t.str).join(' '));
         }
-      } catch(err) {
-        showToast('OCR 识别失败: ' + (err.message || '未知错误'));
-      } finally {
-        isOCRProcessing = false;
-        translateBtn.classList.remove('loading');
-        translateBtn.querySelector('.label').textContent = '翻译';
+        extractedText = pages.join('\n\n').trim();
+
+      } else if(file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'){
+        // DOCX → extract text via mammoth.js
+        translateBtn.querySelector('.label').textContent = 'DOCX解析中…';
+        showToast('正在解析 Word 文档…');
+
+        const buf = await file.arrayBuffer();
+        const result = await mammoth.extractRawText({arrayBuffer: buf});
+        extractedText = result.value.trim();
+
+      } else if(file.type === 'text/plain'){
+        // TXT → read as text
+        translateBtn.querySelector('.label').textContent = '读取中…';
+        showToast('正在读取文本…');
+        extractedText = await file.text();
+
+      } else {
+        showToast('不支持的文件格式');
+        return;
       }
-    };
-    reader.readAsDataURL(file);
+
+      if(extractedText){
+        srcText.value = extractedText;
+        charCount.textContent = extractedText.length;
+        showToast('读取完成，共 ' + extractedText.length + ' 个字');
+
+        if(autoTranslate){
+          setTimeout(triggerAutoTranslate, 500);
+        }
+      } else {
+        showToast('未能提取到文字');
+      }
+
+    } catch(err) {
+      showToast('处理失败: ' + (err.message || '未知错误'));
+    } finally {
+      isProcessingFile = false;
+      translateBtn.classList.remove('loading');
+      translateBtn.querySelector('.label').textContent = '翻译';
+    }
   });
 
   removeImageBtn.addEventListener('click', function(){
     currentImageBase64 = '';
+    currentFileName = '';
+    currentFileType = '';
     imagePreview.style.display = 'none';
     imagePreviewImg.src = '';
+    imagePreviewImg.style.display = 'block';
+    fileInfo.style.display = 'none';
     imageInput.value = '';
   });
 
