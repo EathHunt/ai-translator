@@ -9,6 +9,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <script>if("serviceWorker" in navigator){window.addEventListener("load",()=>{navigator.serviceWorker.register("sw.js").catch(()=>{})})}</script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <title>AI 翻译</title>
 <style>
 /* === Reset & Base === */
@@ -679,27 +680,71 @@ main{
     if(autoTranslate) triggerAutoTranslate();
   });
 
-  // === Image upload ===
+  // === Image upload + OCR ===
+  let isOCRProcessing = false;
+
   imageBtn.addEventListener('click', function(){
     imageInput.click();
   });
 
-  imageInput.addEventListener('change', function(e){
+  imageInput.addEventListener('change', async function(e){
     const file = e.target.files[0];
     if(!file) return;
 
-    // Validate file size (max 20MB)
     if(file.size > 20 * 1024 * 1024){
       showToast('图片太大，请选择 20MB 以内的图片');
       return;
     }
 
     const reader = new FileReader();
-    reader.onload = function(ev){
+    reader.onload = async function(ev){
       currentImageBase64 = ev.target.result;
       imagePreviewImg.src = currentImageBase64;
       imagePreview.style.display = 'block';
-      showToast('已加载图片 ✓');
+      showToast('正在 OCR 识别…');
+
+      // Run Tesseract.js OCR
+      isOCRProcessing = true;
+      translateBtn.classList.add('loading');
+      translateBtn.querySelector('.label').textContent = 'OCR识别中…';
+
+      try {
+        const langMap = {
+          'auto': 'chi_sim+eng+jpn+kor',
+          'zh': 'chi_sim',
+          'en': 'eng',
+          'ja': 'jpn',
+          'ko': 'kor'
+        };
+        const src = srcLang.value;
+        const lang = langMap[src] || 'chi_sim+eng+jpn+kor';
+
+        const result = await Tesseract.recognize(
+          currentImageBase64,
+          lang,
+          { logger: m => { if(m.status === 'recognizing text'){ /* progress */ } } }
+        );
+
+        const extractedText = result.data.text.trim();
+        if(extractedText){
+          srcText.value = extractedText;
+          charCount.textContent = extractedText.length;
+          showToast('OCR 完成，识别到 ' + extractedText.length + ' 个字');
+
+          // Auto-trigger translation
+          if(autoTranslate){
+            setTimeout(triggerAutoTranslate, 500);
+          }
+        } else {
+          showToast('未识别到文字，请重试');
+        }
+      } catch(err) {
+        showToast('OCR 识别失败: ' + (err.message || '未知错误'));
+      } finally {
+        isOCRProcessing = false;
+        translateBtn.classList.remove('loading');
+        translateBtn.querySelector('.label').textContent = '翻译';
+      }
     };
     reader.readAsDataURL(file);
   });
