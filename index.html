@@ -508,6 +508,19 @@ main{
   const speakBtn       = document.getElementById('speakBtn');
   const clearBtn       = document.getElementById('clearBtn');
   const settingsBtn    = document.getElementById('settingsBtn');
+  let titleTapCount = 0, titleTapTimer;
+
+  // Hidden: tap header title 5 times to open settings
+  document.querySelector('header h1').addEventListener('click', function(){
+    titleTapCount++;
+    clearTimeout(titleTapTimer);
+    titleTapTimer = setTimeout(() => { titleTapCount = 0; }, 1500);
+    if(titleTapCount >= 5){
+      titleTapCount = 0;
+      settingsVisible = true;
+      settingsModal.classList.add('open');
+    }
+  });
   const settingsModal  = document.getElementById('settingsModal');
   const apiKeyInput    = document.getElementById('apiKeyInput');
   const apiUrlInput    = document.getElementById('apiUrlInput');
