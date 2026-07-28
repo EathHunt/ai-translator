@@ -73,6 +73,7 @@ header .header-actions button:active{background:rgba(0,122,255,0.12)}
 main{
   flex:1;overflow-y:auto;padding:16px 16px 0;display:flex;flex-direction:column;gap:12px;
   padding-bottom:calc(var(--safe-bottom) + 100px);
+  -webkit-overflow-scrolling:touch;
 }
 
 /* === Language Selector === */
@@ -110,11 +111,10 @@ main{
 }
 .card-body{padding:0 16px 16px;flex:1;display:flex;flex-direction:column}
 .card-body textarea,.card-body .output{
-  width:100%;min-height:150px;max-height:60vh;
+  width:100%;min-height:120px;
   font-size:17px;line-height:1.5;color:var(--text);
   background:transparent;border:none;outline:none;resize:none;
-  font-family:inherit;padding:8px 0;flex:1;overflow-y:scroll;
-  -webkit-overflow-scrolling:touch;
+  font-family:inherit;padding:8px 0;flex:1;
 }
 .card-body textarea::placeholder{color:var(--text2)}
 .card-body .output{overflow-y:auto;white-space:pre-wrap;word-break:break-word}
