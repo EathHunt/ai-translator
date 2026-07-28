@@ -301,22 +301,46 @@ main{
   display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);font-weight:500;
   flex-shrink:0;padding:0 16px 10px;
 }
-.auto-toggle .switch{
+.auto-toggle .switch, .auto-toggle-card .switch{
   position:relative;width:44px;height:26px;background:var(--border);
   border-radius:13px;cursor:pointer;transition:background 0.2s;flex-shrink:0;
 }
-.auto-toggle .switch.active{background:var(--primary)}
-.auto-toggle .switch::after{
+.auto-toggle .switch.active, .auto-toggle-card .switch.active{background:var(--primary)}
+.auto-toggle .switch::after, .auto-toggle-card .switch::after{
   content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;
   border-radius:50%;background:#fff;transition:transform 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.15);
 }
-.auto-toggle .switch.active::after{transform:translateX(18px)}
+.auto-toggle .switch.active::after, .auto-toggle-card .switch.active::after{transform:translateX(18px)}
+.auto-toggle-card{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  background:var(--card);border:2px dashed var(--border);border-radius:var(--radius);
+  padding:10px 14px;cursor:pointer;box-shadow:var(--shadow);min-width:72px;
+}
+.auto-toggle-card:active{background:var(--input-bg);border-color:var(--primary)}
+.auto-toggle-label{font-size:11px;font-weight:600;color:var(--text2);letter-spacing:0.3px}
 
 /* === Detection badge === */
 .detection-badge{
   display:inline-block;font-size:11px;padding:2px 8px;border-radius:4px;
   background:rgba(0,122,255,0.1);color:var(--primary);font-weight:500;margin-left:6px;
 }
+
+/* Bottom action bar */
+.bottom-actions{
+  display:flex;align-items:center;justify-content:center;gap:0;
+  padding:8px 20px calc(8px + var(--safe-bottom));
+  background:var(--card);border-top:1px solid var(--border);
+  flex-shrink:0;
+}
+.bottom-action-btn{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
+  background:none;border:none;color:var(--primary);font-size:20px;
+  padding:8px;cursor:pointer;font-family:inherit;
+}
+.bottom-action-btn:active{opacity:0.6}
+.bottom-action-btn:disabled{opacity:0.3;pointer-events:none}
+.bottom-action-label{font-size:11px;font-weight:500;color:var(--text2)}
+.bottom-action-divider{width:1px;height:32px;background:var(--border)}
 </style>
 </head>
 <body>
@@ -348,10 +372,16 @@ main{
   <!-- Camera / Image Upload Row -->
   <div class="camera-row">
     <input type="file" id="imageInput" accept="image/*,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,.docx,.pdf,.txt" style="display:none">
-    <button class="camera-btn" id="imageBtn">
-      <span class="camera-icon">📄</span>
-      <span class="camera-label">上传图片或文档（PDF/DOCX/TXT）</span>
-    </button>
+    <div style="display:flex;gap:8px;align-items:stretch">
+      <button class="camera-btn" id="imageBtn" style="flex:1">
+        <span class="camera-icon">📄</span>
+        <span class="camera-label">上传图片或文档</span>
+      </button>
+      <div class="auto-toggle-card" id="autoToggleCard">
+        <div class="switch active" id="autoSwitch2"></div>
+        <span class="auto-toggle-label">自动</span>
+      </div>
+    </div>
   </div>
 
   <!-- Source Input -->
@@ -374,10 +404,7 @@ main{
       </div>
     </div>
     <div class="card-footer">
-      <div class="auto-toggle">
-        <div class="switch active" id="autoSwitch"></div>
-        <span>自动翻译</span>
-      </div>
+      <div></div>
       <div>
         <span id="charCount">0</span>
       </div>
@@ -402,11 +429,20 @@ main{
     </div>
     <div class="card-footer">
       <div></div>
-      <div class="actions">
-        <button id="copyBtn" disabled title="复制译文">📋</button>
-        <button id="speakBtn" disabled title="朗读译文">🔊</button>
-      </div>
+      <div></div>
     </div>
+  </div>
+  <!-- Bottom Action Bar -->
+  <div class="bottom-actions" id="bottomActions" style="display:none">
+    <button class="bottom-action-btn" id="copyBtn" title="复制译文">
+      <span>📋</span>
+      <span class="bottom-action-label">复制</span>
+    </button>
+    <div class="bottom-action-divider"></div>
+    <button class="bottom-action-btn" id="speakBtn" title="朗读译文">
+      <span>🔊</span>
+      <span class="bottom-action-label">朗读</span>
+    </button>
   </div>
 </main>
 
@@ -481,6 +517,8 @@ main{
   const resetKeyBtn    = document.getElementById('resetKeyBtn');
   const charCount      = document.getElementById('charCount');
   const autoSwitch     = document.getElementById('autoSwitch');
+  const autoSwitch2    = document.getElementById('autoSwitch2');
+  const autoToggleCard = document.getElementById('autoToggleCard');
   const toast          = document.getElementById('toast');
   const detectBadge    = document.getElementById('detectBadge');
   const imageBtn       = document.getElementById('imageBtn');
@@ -725,6 +763,7 @@ function getLangName(code) { return LANG_MAP[code] || code; }
       copyBtn.disabled = true;
       speakBtn.disabled = true;
       translatedText = '';
+      document.getElementById('bottomActions').style.display = 'none';
       return;
     }
     clearTimeout(debounceTimer);
@@ -930,17 +969,22 @@ function getLangName(code) { return LANG_MAP[code] || code; }
     copyBtn.disabled = true;
     speakBtn.disabled = true;
     translatedText = '';
+    document.getElementById('bottomActions').style.display = 'none';
     detectBadge.style.display = 'none';
     detectedLang = '';
   });
 
   // === Auto translate toggle ===
-  autoSwitch.addEventListener('click', function(){
+  function toggleAuto() {
     autoTranslate = !autoTranslate;
-    this.classList.toggle('active',autoTranslate);
+    autoSwitch.classList.toggle('active',autoTranslate);
+    autoSwitch2.classList.toggle('active',autoTranslate);
     saveSettings();
     if(autoTranslate) triggerAutoTranslate();
-  });
+  }
+  autoSwitch.addEventListener('click', toggleAuto);
+  autoSwitch2.addEventListener('click', toggleAuto);
+  autoToggleCard.addEventListener('click', toggleAuto);
 
   // === File upload + OCR / document parsing ===
   let isProcessingFile = false;
