@@ -1,7 +1,7 @@
 {
-  "name": "AI 翻译",
-  "short_name": "翻译",
-  "description": "中英日韩自动翻译 - DeepSeek 驱动",
+  "name": "Mini\ud83d\udc11\ud83d\udca9\ud83e\udd5a",
+  "short_name": "Mini\ud83d\udc11\ud83d\udca9\ud83e\udd5a",
+  "description": "Mini\ud83d\udc11\ud83d\udca9\ud83e\udd5a - \u4e2d\u82f1\u65e5\u97e9\u81ea\u52a8\u7ffb\u8bd1",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
