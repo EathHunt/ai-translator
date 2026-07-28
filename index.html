@@ -527,7 +527,7 @@ main{
   const modelInput     = document.getElementById('modelInput');
   const apiModeInput   = document.getElementById('apiModeInput');
   const saveSettingsBtn= document.getElementById('saveSettingsBtn');
-  const resetKeyBtn    = document.getElementById('resetKeyBtn');
+
   const charCount      = document.getElementById('charCount');
   const autoSwitch     = document.getElementById('autoSwitch');
   const autoSwitch2    = document.getElementById('autoSwitch2');
@@ -1149,12 +1149,7 @@ function getLangName(code) { return LANG_MAP[code] || code; }
     showToast('设置已保存 ✓');
   });
 
-  resetKeyBtn.addEventListener('click', function(){
-    apiKeyInput.value = '';
-    apiUrlInput.value = 'https://api.deepseek.com/v1/chat/completions';
-    modelInput.value = 'deepseek-v4-flash';
-    apiModeInput.value = 'openai';
-  });
+
 
   // === Detect language via API (lightweight) ===
   // When auto-detect is on, we use the translation response to figure out the language.
