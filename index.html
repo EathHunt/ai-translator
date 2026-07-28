@@ -191,6 +191,27 @@ main{
 }
 .toast.show{opacity:1}
 
+/* Image preview */
+.image-btn{
+  background:none;border:none;color:var(--primary);font-size:20px;
+  width:32px;height:32px;border-radius:8px;display:flex;
+  align-items:center;justify-content:center;cursor:pointer;
+  transition:background 0.15s;
+}
+.image-btn:active{background:rgba(0,122,255,0.12)}
+.image-preview-inner{position:relative;display:inline-block;max-width:100%}
+.image-preview-inner img{
+  max-height:180px;max-width:100%;border-radius:10px;object-fit:contain;
+  border:1px solid var(--border);background:var(--input-bg);
+}
+.image-remove-btn{
+  position:absolute;top:-8px;right:-8px;width:24px;height:24px;border-radius:50%;
+  background:var(--card);border:1px solid var(--border);color:var(--text);
+  font-size:12px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,0.15);
+  line-height:1;
+}
+
 /* === Scrollbar === */
 ::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-track{background:transparent}
@@ -256,10 +277,20 @@ main{
     <div class="card-body">
       <textarea id="srcText" placeholder="输入要翻译的文字…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
     </div>
+    <div class="image-preview" id="imagePreview" style="display:none;padding:0 16px 8px">
+      <div class="image-preview-inner">
+        <img id="imagePreviewImg" src="" alt="预览">
+        <button class="image-remove-btn" id="removeImageBtn">✕</button>
+      </div>
+    </div>
     <div class="card-footer">
-      <div class="auto-toggle">
-        <div class="switch active" id="autoSwitch"></div>
-        <span>自动翻译</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button class="image-btn" id="imageBtn" title="上传图片/拍照">📷</button>
+        <input type="file" id="imageInput" accept="image/*" capture="environment" style="display:none">
+        <div class="auto-toggle">
+          <div class="switch active" id="autoSwitch"></div>
+          <span>自动翻译</span>
+        </div>
       </div>
       <div>
         <span id="charCount">0</span>
@@ -355,6 +386,12 @@ main{
   const autoSwitch     = document.getElementById('autoSwitch');
   const toast          = document.getElementById('toast');
   const detectBadge    = document.getElementById('detectBadge');
+  const imageBtn       = document.getElementById('imageBtn');
+  const imageInput     = document.getElementById('imageInput');
+  const imagePreview   = document.getElementById('imagePreview');
+  const imagePreviewImg= document.getElementById('imagePreviewImg');
+  const removeImageBtn = document.getElementById('removeImageBtn');
+  let currentImageBase64 = '';
 
   // === State ===
   let autoTranslate = true;
@@ -621,6 +658,10 @@ main{
   clearBtn.addEventListener('click', function(){
     srcText.value = '';
     charCount.textContent = '0';
+    currentImageBase64 = '';
+    imagePreview.style.display = 'none';
+    imagePreviewImg.src = '';
+    imageInput.value = '';
     outputText.textContent = '翻译结果将显示在这里';
     outputText.classList.add('placeholder');
     copyBtn.disabled = true;
@@ -636,6 +677,38 @@ main{
     this.classList.toggle('active',autoTranslate);
     saveSettings();
     if(autoTranslate) triggerAutoTranslate();
+  });
+
+  // === Image upload ===
+  imageBtn.addEventListener('click', function(){
+    imageInput.click();
+  });
+
+  imageInput.addEventListener('change', function(e){
+    const file = e.target.files[0];
+    if(!file) return;
+
+    // Validate file size (max 20MB)
+    if(file.size > 20 * 1024 * 1024){
+      showToast('图片太大，请选择 20MB 以内的图片');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(ev){
+      currentImageBase64 = ev.target.result;
+      imagePreviewImg.src = currentImageBase64;
+      imagePreview.style.display = 'block';
+      showToast('已加载图片 ✓');
+    };
+    reader.readAsDataURL(file);
+  });
+
+  removeImageBtn.addEventListener('click', function(){
+    currentImageBase64 = '';
+    imagePreview.style.display = 'none';
+    imagePreviewImg.src = '';
+    imageInput.value = '';
   });
 
   // === Settings modal ===
