@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="翻译">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<script>if("serviceWorker" in navigator){window.addEventListener("load",()=>{navigator.serviceWorker.register("sw.js").catch(()=>{})})}</script>
+<title>AI 翻译</title>
+<style>
+/* === Reset & Base === */
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#F2F2F7;
+  --card:#FFFFFF;
+  --primary:#007AFF;
+  --text:#1C1C1E;
+  --text2:#8E8E93;
+  --border:#E5E5EA;
+  --input-bg:#F8F8FA;
+  --shadow:0 2px 12px rgba(0,0,0,0.06);
+  --radius:14px;
+  --radius-sm:10px;
+  --safe-bottom:env(safe-area-inset-bottom,16px);
+  --safe-top:env(safe-area-inset-top,16px);
+}
+@media(prefers-color-scheme:dark){
+  :root{
+    --bg:#000000;
+    --card:#1C1C1E;
+    --primary:#0A84FF;
+    --text:#F2F2F7;
+    --text2:#8E8E93;
+    --border:#38383A;
+    --input-bg:#2C2C2E;
+    --shadow:0 2px 12px rgba(0,0,0,0.3);
+  }
+}
+html,body{height:100%;overflow:hidden}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Helvetica Neue",sans-serif;
+  background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;
+  display:flex;flex-direction:column;
+  padding-top:var(--safe-top);
+}
+/* === Header === */
+header{
+  padding:12px 20px;display:flex;align-items:center;justify-content:space-between;
+  flex-shrink:0;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  background:rgba(242,242,247,0.85);border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:10;
+}
+@media(prefers-color-scheme:dark){
+  header{background:rgba(0,0,0,0.85)}
+}
+header h1{font-size:18px;font-weight:600;letter-spacing:-0.3px}
+header .header-actions{display:flex;gap:8px;align-items:center}
+header .header-actions button{
+  background:none;border:none;color:var(--primary);font-size:20px;
+  width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;transition:background 0.15s;
+}
+header .header-actions button:active{background:rgba(0,122,255,0.12)}
+
+/* === Main Content === */
+main{
+  flex:1;overflow-y:auto;padding:16px 16px 0;display:flex;flex-direction:column;gap:12px;
+  padding-bottom:calc(var(--safe-bottom) + 100px);
+}
+
+/* === Language Selector === */
+.lang-bar{
+  display:flex;align-items:center;gap:8px;flex-shrink:0;
+  background:var(--card);border-radius:var(--radius);padding:8px;
+  box-shadow:var(--shadow);
+}
+.lang-bar select{
+  flex:1;appearance:none;-webkit-appearance:none;
+  background:var(--input-bg);border:none;border-radius:var(--radius-sm);
+  padding:10px 32px 10px 14px;font-size:15px;font-weight:500;color:var(--text);
+  cursor:pointer;font-family:inherit;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238E8E93' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 12px center;
+  background-size:12px;min-width:0;
+}
+.lang-bar .swap-btn{
+  flex-shrink:0;width:40px;height:40px;border-radius:50%;
+  background:var(--input-bg);border:none;color:var(--primary);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+  font-size:18px;transition:all 0.2s;
+}
+.lang-bar .swap-btn:active{transform:rotate(180deg);background:var(--primary);color:#fff}
+
+/* === Input Cards === */
+.card{
+  background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);
+  overflow:hidden;display:flex;flex-direction:column;
+}
+.card-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 16px 0;font-size:12px;font-weight:600;color:var(--text2);
+  text-transform:uppercase;letter-spacing:0.5px;
+}
+.card-body{padding:0 16px 16px;flex:1;display:flex;flex-direction:column}
+.card-body textarea,.card-body .output{
+  width:100%;min-height:120px;max-height:220px;
+  font-size:17px;line-height:1.5;color:var(--text);
+  background:transparent;border:none;outline:none;resize:none;
+  font-family:inherit;padding:8px 0;flex:1;
+}
+.card-body textarea::placeholder{color:var(--text2)}
+.card-body .output{overflow-y:auto;white-space:pre-wrap;word-break:break-word}
+.card-body .output.placeholder{color:var(--text2)}
+.card-footer{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 16px 12px;font-size:12px;color:var(--text2);
+}
+.card-footer .actions{display:flex;gap:6px}
+.card-footer button{
+  background:none;border:none;color:var(--primary);font-size:20px;
+  width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;transition:background 0.15s;
+}
+.card-footer button:active{background:rgba(0,122,255,0.12)}
+.card-footer button:disabled{opacity:0.3;pointer-events:none}
+
+/* === Translate Button === */
+.translate-btn-wrap{padding:0;flex-shrink:0}
+.translate-btn{
+  width:100%;padding:16px;border:none;border-radius:var(--radius);
+  background:var(--primary);color:#fff;font-size:17px;font-weight:600;
+  cursor:pointer;transition:all 0.2s;font-family:inherit;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  box-shadow:0 4px 14px rgba(0,122,255,0.3);
+}
+.translate-btn:active{transform:scale(0.98);opacity:0.9}
+.translate-btn:disabled{opacity:0.5;transform:none;pointer-events:none}
+.translate-btn .spinner{
+  width:18px;height:18px;border:2px solid rgba(255,255,255,0.3);
+  border-top-color:#fff;border-radius:50%;animation:spin 0.6s linear infinite;
+  display:none;
+}
+.translate-btn.loading .spinner{display:block}
+.translate-btn.loading .label{opacity:0.7}
+
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* === Settings Modal === */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,0.4);
+  z-index:100;display:flex;align-items:flex-end;justify-content:center;
+  visibility:hidden;opacity:0;transition:all 0.3s;
+}
+.modal-overlay.open{visibility:visible;opacity:1}
+.modal-sheet{
+  width:100%;max-width:500px;background:var(--card);
+  border-radius:20px 20px 0 0;padding:20px 24px calc(24px + var(--safe-bottom));
+  transform:translateY(100%);transition:transform 0.35s cubic-bezier(0.32,0.72,0,1);
+}
+.modal-overlay.open .modal-sheet{transform:translateY(0)}
+.modal-handle{
+  width:36px;height:4px;border-radius:2px;background:var(--text2);
+  margin:0 auto 20px;opacity:0.3;
+}
+.modal-title{font-size:18px;font-weight:600;margin-bottom:20px}
+.modal-body label{display:block;font-size:13px;font-weight:600;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px}
+.modal-body input,.modal-body select{
+  width:100%;padding:12px 14px;border:1px solid var(--border);
+  border-radius:var(--radius-sm);font-size:15px;color:var(--text);
+  background:var(--input-bg);font-family:inherit;margin-bottom:16px;
+}
+.modal-body input:focus{border-color:var(--primary);outline:none}
+.modal-actions{display:flex;gap:10px;margin-top:8px}
+.modal-actions button{
+  flex:1;padding:14px;border:none;border-radius:var(--radius-sm);
+  font-size:16px;font-weight:600;cursor:pointer;font-family:inherit;
+}
+.modal-actions .btn-primary{background:var(--primary);color:#fff}
+.modal-actions .btn-secondary{background:var(--input-bg);color:var(--text)}
+.modal-actions button:active{opacity:0.8}
+
+/* === Toast === */
+.toast{
+  position:fixed;bottom:calc(80px + var(--safe-bottom));left:50%;transform:translateX(-50%);
+  background:rgba(0,0,0,0.8);color:#fff;padding:10px 20px;border-radius:10px;
+  font-size:14px;z-index:200;opacity:0;transition:opacity 0.3s;
+  pointer-events:none;white-space:nowrap;
+}
+.toast.show{opacity:1}
+
+/* === Scrollbar === */
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+/* === Auto-translate toggle === */
+.auto-toggle{
+  display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);font-weight:500;
+  flex-shrink:0;padding:0 16px 10px;
+}
+.auto-toggle .switch{
+  position:relative;width:44px;height:26px;background:var(--border);
+  border-radius:13px;cursor:pointer;transition:background 0.2s;flex-shrink:0;
+}
+.auto-toggle .switch.active{background:var(--primary)}
+.auto-toggle .switch::after{
+  content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;
+  border-radius:50%;background:#fff;transition:transform 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.15);
+}
+.auto-toggle .switch.active::after{transform:translateX(18px)}
+
+/* === Detection badge === */
+.detection-badge{
+  display:inline-block;font-size:11px;padding:2px 8px;border-radius:4px;
+  background:rgba(0,122,255,0.1);color:var(--primary);font-weight:500;margin-left:6px;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>AI 翻译</h1>
+  <div class="header-actions">
+    <button id="clearBtn" title="清空">🗑️</button>
+    <button id="settingsBtn" title="设置">⚙️</button>
+  </div>
+</header>
+
+<main id="main">
+  <!-- Language Bar -->
+  <div class="lang-bar">
+    <select id="srcLang">
+      <option value="auto">自动检测</option>
+      <option value="zh">中文</option>
+      <option value="en">英语</option>
+      <option value="ja">日语</option>
+      <option value="ko">韩语</option>
+    </select>
+    <button class="swap-btn" id="swapBtn">⇄</button>
+    <select id="tgtLang">
+      <option value="zh">中文</option>
+      <option value="en" selected>英语</option>
+      <option value="ja">日语</option>
+      <option value="ko">韩语</option>
+    </select>
+  </div>
+
+  <!-- Source Input -->
+  <div class="card">
+    <div class="card-header">
+      <span>原文 <span class="detection-badge" id="detectBadge" style="display:none"></span></span>
+    </div>
+    <div class="card-body">
+      <textarea id="srcText" placeholder="输入要翻译的文字…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
+    </div>
+    <div class="card-footer">
+      <div class="auto-toggle">
+        <div class="switch active" id="autoSwitch"></div>
+        <span>自动翻译</span>
+      </div>
+      <div>
+        <span id="charCount">0</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Translate Button -->
+  <div class="translate-btn-wrap">
+    <button class="translate-btn" id="translateBtn">
+      <span class="spinner"></span>
+      <span class="label">翻译</span>
+    </button>
+  </div>
+
+  <!-- Translation Output -->
+  <div class="card" id="outputCard">
+    <div class="card-header">
+      <span>译文</span>
+    </div>
+    <div class="card-body">
+      <div class="output placeholder" id="outputText">翻译结果将显示在这里</div>
+    </div>
+    <div class="card-footer">
+      <div></div>
+      <div class="actions">
+        <button id="copyBtn" disabled title="复制译文">📋</button>
+        <button id="speakBtn" disabled title="朗读译文">🔊</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Settings Modal -->
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">设置</div>
+    <div class="modal-body">
+      <label>API Key</label>
+      <input type="password" id="apiKeyInput" placeholder="sk-xxxxxxxxxxxxxxxx" value="sk-e6c4852b733749b298a3dfde0326b7ab">
+
+      <label>API 地址</label>
+      <input type="text" id="apiUrlInput" value="https://api.deepseek.com/v1/chat/completions" placeholder="https://api.deepseek.com/v1/chat/completions">
+
+      <label>模型</label>
+      <input type="text" id="modelInput" value="deepseek-v4-flash" placeholder="deepseek-v4-flash">
+
+      <label>接口模式</label>
+      <select id="apiModeInput">
+        <option value="openai">OpenAI 兼容模式</option>
+        <option value="custom">自定义流式模式</option>
+      </select>
+
+      <div class="modal-actions">
+        <button class="btn-secondary" id="resetKeyBtn">恢复默认</button>
+        <button class="btn-primary" id="saveSettingsBtn">保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  'use strict';
+
+  // === Config ===
+  const LANG_MAP = {zh:'中文',en:'英语',ja:'日语',ko:'韩语',auto:'自动检测'};
+  const LANG_NAME_TO_CODE = {中文:'zh',英语:'en',日语:'ja',韩语:'ko'};
+
+  // === DOM refs ===
+  const srcLang        = document.getElementById('srcLang');
+  const tgtLang        = document.getElementById('tgtLang');
+  const swapBtn        = document.getElementById('swapBtn');
+  const srcText        = document.getElementById('srcText');
+  const outputText     = document.getElementById('outputText');
+  const translateBtn   = document.getElementById('translateBtn');
+  const copyBtn        = document.getElementById('copyBtn');
+  const speakBtn       = document.getElementById('speakBtn');
+  const clearBtn       = document.getElementById('clearBtn');
+  const settingsBtn    = document.getElementById('settingsBtn');
+  const settingsModal  = document.getElementById('settingsModal');
+  const apiKeyInput    = document.getElementById('apiKeyInput');
+  const apiUrlInput    = document.getElementById('apiUrlInput');
+  const modelInput     = document.getElementById('modelInput');
+  const apiModeInput   = document.getElementById('apiModeInput');
+  const saveSettingsBtn= document.getElementById('saveSettingsBtn');
+  const resetKeyBtn    = document.getElementById('resetKeyBtn');
+  const charCount      = document.getElementById('charCount');
+  const autoSwitch     = document.getElementById('autoSwitch');
+  const toast          = document.getElementById('toast');
+  const detectBadge    = document.getElementById('detectBadge');
+
+  // === State ===
+  let autoTranslate = true;
+  let isLoading = false;
+  let translatedText = '';
+  let detectedLang = '';
+  let debounceTimer = null;
+
+  // === Load persisted settings ===
+  function loadSettings(){
+    try{
+      const s = JSON.parse(localStorage.getItem('translator_settings')||'{}');
+      if(s.apiKey) apiKeyInput.value = s.apiKey;
+      if(s.apiUrl) apiUrlInput.value = s.apiUrl;
+      if(s.model) modelInput.value = s.model;
+      if(s.apiMode) apiModeInput.value = s.apiMode;
+      if(s.srcLang && ['auto','zh','en','ja','ko'].includes(s.srcLang)) srcLang.value = s.srcLang;
+      if(s.tgtLang && ['zh','en','ja','ko'].includes(s.tgtLang)) tgtLang.value = s.tgtLang;
+      if(s.autoTranslate !== undefined) autoTranslate = s.autoTranslate;
+      autoSwitch.classList.toggle('active',autoTranslate);
+    }catch(e){}
+  }
+  function saveSettings(){
+    localStorage.setItem('translator_settings',JSON.stringify({
+      apiKey: apiKeyInput.value.trim(),
+      apiUrl: apiUrlInput.value.trim(),
+      model: modelInput.value.trim(),
+      apiMode: apiModeInput.value,
+      srcLang: srcLang.value,
+      tgtLang: tgtLang.value,
+      autoTranslate: autoTranslate,
+    }));
+  }
+  loadSettings();
+
+  // === Language helpers ===
+  function getLangName(code){ return LANG_MAP[code]||code; }
+  function langCodeToChinese(code){
+    const m={zh:'中文',en:'英语',ja:'日语',ko:'韩语'};
+    return m[code]||code;
+  }
+
+  // === Toast ===
+  let toastTimer;
+  function showToast(msg){
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=>toast.classList.remove('show'),2000);
+  }
+
+  // === Auto-switch auto-detect to detected language ===
+  function applyDetectedLang(langCode){
+    if(srcLang.value === 'auto' && langCode && langCode !== 'auto'){
+      detectedLang = langCode;
+      detectBadge.style.display = 'inline';
+      detectBadge.textContent = '→ '+langCodeToChinese(langCode);
+    }
+  }
+
+  // === Core: translate ===
+  async function doTranslate(){
+    const text = srcText.value.trim();
+    if(!text){ return; }
+
+    const src = srcLang.value;
+    const tgt = tgtLang.value;
+    const apiKey = apiKeyInput.value.trim();
+    const apiUrl = apiUrlInput.value.trim();
+    const model = modelInput.value.trim();
+
+    if(!apiKey){ showToast('请先在设置中填写 API Key'); return; }
+
+    // Build system prompt
+    let srcLabel, tgtLabel;
+    if(src === 'auto'){
+      srcLabel = detectedLang ? langCodeToChinese(detectedLang) : '源语言';
+    } else {
+      srcLabel = langCodeToChinese(src);
+    }
+    tgtLabel = langCodeToChinese(tgt);
+
+    const systemPrompt = `你是一位专业的翻译专家。你的任务是将用户输入的文本从${srcLabel}精确翻译成${tgtLabel}。
+
+## 翻译规则
+1. 只输出翻译结果，不要添加任何解释、说明或额外内容
+2. 保持原文的语气、风格和格式
+3. 专业术语要准确
+4. 如果是${srcLabel}到${tgtLabel}的翻译，${src === 'auto' ? '请先判断源语言，然后' : ''}直接输出${tgtLabel}译文
+5. 如果原文已经是${tgtLabel}且没有翻译必要，直接输出原文
+6. 保持原文的换行和段落结构`;
+
+    const userPrompt = src === 'auto'
+      ? `请翻译以下文本到${tgtLabel}：\n\n${text}`
+      : text;
+
+    isLoading = true;
+    translateBtn.classList.add('loading');
+    translateBtn.querySelector('.label').textContent = '翻译中…';
+    outputText.textContent = '正在翻译…';
+    outputText.classList.remove('placeholder');
+
+    try {
+      const resp = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+          ],
+          temperature: 0.1,
+          max_tokens: 4096,
+          stream: false
+        })
+      });
+
+      if(!resp.ok){
+        const errText = await resp.text().catch(()=>'');
+        throw new Error(`API 请求失败 (${resp.status}): ${errText.slice(0,200)}`);
+      }
+
+      const data = await resp.json();
+      const result = data.choices?.[0]?.message?.content || '';
+      translatedText = result;
+      outputText.textContent = result;
+      outputText.classList.remove('placeholder');
+      copyBtn.disabled = false;
+      speakBtn.disabled = false;
+
+      // If in auto-detect mode, try to extract detected language
+      if(src === 'auto' && detectedLang){
+        // Keep the detected language badge
+      }
+
+      showToast('翻译完成 ✓');
+
+    } catch(err) {
+      outputText.textContent = '翻译失败: ' + err.message;
+      outputText.classList.remove('placeholder');
+      showToast('翻译失败');
+    } finally {
+      isLoading = false;
+      translateBtn.classList.remove('loading');
+      translateBtn.querySelector('.label').textContent = '翻译';
+    }
+  }
+
+  // === Auto-translate with debounce ===
+  function triggerAutoTranslate(){
+    if(!autoTranslate) return;
+    const text = srcText.value.trim();
+    if(!text){
+      outputText.textContent = '翻译结果将显示在这里';
+      outputText.classList.add('placeholder');
+      copyBtn.disabled = true;
+      speakBtn.disabled = true;
+      translatedText = '';
+      return;
+    }
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(doTranslate, 600);
+  }
+
+  // === Event: text input ===
+  srcText.addEventListener('input', function(){
+    charCount.textContent = this.value.length;
+    triggerAutoTranslate();
+  });
+
+  // === Event: source language change ===
+  srcLang.addEventListener('change', function(){
+    // Reset detection badge if switching off auto
+    if(this.value !== 'auto'){
+      detectBadge.style.display = 'none';
+      detectedLang = '';
+    }
+    saveSettings();
+    triggerAutoTranslate();
+  });
+
+  tgtLang.addEventListener('change', function(){
+    saveSettings();
+    triggerAutoTranslate();
+  });
+
+  // === Swap languages ===
+  swapBtn.addEventListener('click', function(){
+    if(srcLang.value === 'auto') {
+      showToast('自动检测模式下无法互换');
+      return;
+    }
+    if(srcLang.value === tgtLang.value){
+      showToast('源语言和目标语言相同');
+      return;
+    }
+    // Swap the values
+    const tmp = srcLang.value;
+    // If target was auto (which shouldn't happen in UI) – but just in case
+    if(tgtLang.value === 'auto') return;
+    srcLang.value = tgtLang.value;
+    tgtLang.value = tmp;
+
+    detectBadge.style.display = 'none';
+    detectedLang = '';
+
+    // Also swap text
+    const currentOutput = outputText.textContent;
+    if(currentOutput && !outputText.classList.contains('placeholder')){
+      srcText.value = currentOutput;
+      charCount.textContent = currentOutput.length;
+    }
+
+    saveSettings();
+    triggerAutoTranslate();
+  });
+
+  // === Translate button ===
+  translateBtn.addEventListener('click', function(){
+    if(isLoading) return;
+    doTranslate();
+  });
+
+  // === Copy ===
+  copyBtn.addEventListener('click', function(){
+    if(!translatedText) return;
+    navigator.clipboard.writeText(translatedText).then(()=>{
+      showToast('已复制 ✓');
+    }).catch(()=>{
+      // Fallback
+      const ta = document.createElement('textarea');
+      ta.value = translatedText;
+      ta.style.position = 'fixed';ta.style.left='-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      showToast('已复制 ✓');
+    });
+  });
+
+  // === Speak (TTS) ===
+  speakBtn.addEventListener('click', function(){
+    if(!translatedText) return;
+    if('speechSynthesis' in window){
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(translatedText);
+      // Try to set language
+      const tgt = tgtLang.value;
+      const langMap = {zh:'zh-CN',en:'en-US',ja:'ja-JP',ko:'ko-KR'};
+      utter.lang = langMap[tgt] || 'en-US';
+      utter.rate = 0.9;
+      window.speechSynthesis.speak(utter);
+    } else {
+      showToast('当前浏览器不支持朗读');
+    }
+  });
+
+  // === Clear ===
+  clearBtn.addEventListener('click', function(){
+    srcText.value = '';
+    charCount.textContent = '0';
+    outputText.textContent = '翻译结果将显示在这里';
+    outputText.classList.add('placeholder');
+    copyBtn.disabled = true;
+    speakBtn.disabled = true;
+    translatedText = '';
+    detectBadge.style.display = 'none';
+    detectedLang = '';
+  });
+
+  // === Auto translate toggle ===
+  autoSwitch.addEventListener('click', function(){
+    autoTranslate = !autoTranslate;
+    this.classList.toggle('active',autoTranslate);
+    saveSettings();
+    if(autoTranslate) triggerAutoTranslate();
+  });
+
+  // === Settings modal ===
+  settingsBtn.addEventListener('click', function(){
+    settingsModal.classList.add('open');
+  });
+
+  settingsModal.addEventListener('click', function(e){
+    if(e.target === this) this.classList.remove('open');
+  });
+
+  saveSettingsBtn.addEventListener('click', function(){
+    saveSettings();
+    settingsModal.classList.remove('open');
+    showToast('设置已保存 ✓');
+  });
+
+  resetKeyBtn.addEventListener('click', function(){
+    apiKeyInput.value = 'sk-e6c4852b733749b298a3dfde0326b7ab';
+    apiUrlInput.value = 'https://api.deepseek.com/v1/chat/completions';
+    modelInput.value = 'deepseek-v4-flash';
+    apiModeInput.value = 'openai';
+  });
+
+  // === Detect language via API (lightweight) ===
+  // When auto-detect is on, we use the translation response to figure out the language.
+  // But we can also do a quick detect on typing.
+
+  // === Keyboard shortcuts ===
+  document.addEventListener('keydown', function(e){
+    // Cmd/Ctrl + Enter to translate
+    if((e.metaKey||e.ctrlKey) && e.key === 'Enter'){
+      e.preventDefault();
+      if(!isLoading) doTranslate();
+    }
+    // Escape to close settings
+    if(e.key === 'Escape') settingsModal.classList.remove('open');
+  });
+
+  // === Handle incoming text from share extension or clipboard ===
+  // (PWA opened with shared text)
+
+  // === Initial auto-translate if there's text ===
+  if(srcText.value.trim()){
+    triggerAutoTranslate();
+  }
+
+  // === Prevent overscroll bounce issues ===
+  document.body.addEventListener('touchmove', function(e){
+    // Allow scroll in main content area
+  }, {passive: true});
+
+  console.log('AI 翻译已启动 | 按 ⌘+Enter 或 Ctrl+Enter 快速翻译');
+})();
+</script>
+</body>
+</html>
